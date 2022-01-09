@@ -199,6 +199,63 @@ risk parity allocations. One need to enumerate all these solutions and find the 
 
 #### 3.3.2 Difierentiating through Risk-budget Layer
 
+With chain rule, the gradient of risk-reward function in terms of neural network weightsθ
+can be expressed as
+$$
+∇_{θ}R=\frac{∂R}{∂z^*}\frac{∂z^*}{∂y^*}\frac{∂y^*}{∂b}\frac{∂b}{∂θ}
+$$
+, where b is the risk budget provided by the neural network, and y∗ is the optimal solution from Problem (4) with z∗= y∗/‖y∗‖ . The derivative ∂z∗/∂y∗ is obtained from the relationship, and ∂b/∂θ can be found with standard neural network back-propagation. Optimizing the neural network is now left with differentiating through the convex optimization layer, which in our case, the risk-budget layer. In this subsection, we describe how one finds ∂y*/∂b.
+
+
+
+We will provide the KKT condition of the optimization problem and derive the derivative ∂y∗/∂θ implicitly. Let λ∈R and μ∈Rn be the dual variables corresponding to the two constraints in Problem (4), respectively. First we will derive the Langrangian of the Problem(4)
+$$
+L(y,λ,μ) =y^{T}Σy+λ(c−∑^{n}_{i=1}b_{i}y_{i}) + μ^{T}y
+$$
+
+####  (5)
+
+Following primal and dual feasibility, stationarity, and complementary slackness conditions, we write out the KKT conditions as below:
+$$
+2Σy−λb^T/y+μ= 0
+$$
+
+$$
+b^Tln(y)≥c
+$$
+
+$$
+y≥ 0
+$$
+
+$$
+λ≥ 0
+$$
+
+$$
+μ≥ 0
+$$
+
+$$
+λ(c−b^Tln(y)) = 0
+$$
+
+$$
+μ^Ty= 0
+$$
+
+####  (6)
+
+where 1/y is the vector where each entry is the inverse of corresponding entry in vector y, and ln(y) is the vector where each entry is logarithm of corresponding entry in vector y.
+
+
+
+Taking the differentials of the equalities in the KKT condition, we get
+
+####  (7)
+
+where I is the identity matrix. The system of equations implies the derivative of optimal y∗ with respect to weights of the risk contributions b. To calculate ∂y∗/∂b, we set db=I and all other differential terms as zero, and solve the linear system for dy. After each training step, the weights θ are updated with (θ−learning rate∗∇θR), until the stopping criteria is met.
+
 ### 3.4 Model Architecture
 
 #### 3.4.1 Model-free
@@ -241,6 +298,10 @@ In the model-free approach, we adopt one hidden layer with leaky ReLU activation
 
 In the model-based approach, we adopt one hidden layer with leaky ReLU activation function. The next layer represents the risk contributions (or risk budgets), where we employ softmax activation function to ensure the risk contributions add up to one. Then, an implicit layer solves for the allocation decision.
 
+
+
+In both approaches, the leaky ReLU parameter is chosen to be α= 0.1 . i.e, σReLU(x) = max(x,0) + 0. 1min(x,0). Two risk-reward functions are chosen to train neural networks: sharpe ratio and cumulative return of the portfolio over the training period.
+
 ### 4 Simulation Study
 
 #### 4.1 Set-up
@@ -269,11 +330,85 @@ Figure 3: Computational result on simulated data when the tuning objective is ch
 
 To analyze the performance of model-based and model-free methods compared to the riskparity benchmark, we propose the following hypotheses and see if we have strong enough evidence to reject them. To quantify the performance, we adopt geometric average return over average drawdown as the main metric. We train the neural network with Sharpe ratio as the tuning objective function.
 
+
+
+**Hypothesis 1**
+
+The average performance (in terms of geometric average return over average drawdown) of the model-free end-to-end method is no less than that of the model-based method.
+$$
+H_0:\bar{R}_{free}≥\bar{R}_{based}  vs. H_a:\bar{R}_{free}<\bar{R}_{based}
+$$
+Based on the 100 random seeds, the average performance of model-free method in terms of geometric average return over average drawdown is 7.877 with standard deviation 1.522. That of the model-based method averages at 18.997 with standard deviation 3.941. Applying the one-sided hypothesis testing, the test statistic
+$$
+Z=\frac{7.877 − 18.977}{\sqrt{1.522^2/100+3.941^2/100}}=− 26 .3.
+$$
+We have sufficient evidence to conclude that the model-based method outperforms the model-free method, at 1% significance level.
+
+
+
+Similar conclusion is reached if we adopt Sharpe ratio as the performance metric.
+
+
+
+**Hypothesis 2**
+
+The average performance (in terms of geometric average return over average drawdown) of the model-based method is no greater than that of risk-parity strategy.
+
+
+$$
+H_0:\bar{R}_{based} ≤ R_{parity}  vs. H_a:\bar{R}_{based} > R_{parity}
+$$
+Applying nominal risk parity on the simulated dataset leads to a geometric average return over average drawdown of 16.901. The test statistic is
+$$
+Z=\frac{18.977-16.901}{3.941/\sqrt{100}} = 5.27
+$$
+We have sufficient evidence to conclude that the model-based method on average outperforms the nominal risk parity, at 1% significance level.
+
+
+
+Similar conclusion is reached if we adopt Sharpe ratio as the performance metric, where the test statistic
+$$
+Z=\frac{2.278-2.182}{0.289/\sqrt{100}} = 3.32
+$$
+In particular, 60 out of 100 seeds provides higher Sharpe ratio on the dataset than nominal risk parity.
+
+
+
+In addition, we provide the statistics when cumulative return is used as the tuning objective for neural network training. For Hypothesis (1), the test statistic is
+$$
+Z=\frac{6.321-17.355}{\sqrt{1.212^2/100} + 3.084^2/100} = -33.30
+$$
+, and we have sufficient evidence to reject the null hypothesis and conclude the su-
+periority of the model-based method at 1% significance level. For Hypothesis (2), the test
+statistics is
+$$
+Z=\frac{17.355-16.901}{3.084/\sqrt{100}} = 1.47
+$$
+There is evidence that the model-based approach beats nominal risk parity, at 10% significance level. Figure 4 shows the performance of various seeds when trained on cumulative return.
+
+
+
+(a) Model-based (b) Model-free
+
+Figure 4: Computational result on simulated data when the tuning objective is chosen to be cumulative return.
+
+
+
 ### 5 Real Market Data
 
 We use daily returns of seven exchange-traded funds (ETFs) instead of individual assets to represent stock, bond and commodity market conditions: VTI (Vanguard Total Stock Market ETF), IWM (iShares Russell 2000 ETF), AGG (iShares Core U.S. Aggregate Bond ETF), LQD ( iShares iBoxx Investment Grade Corporate Bond ETF), MUB (iShares National Muni Bond ETF), DBC (Invesco DB Commodity Index Tracking Fund), and GLD (SPDR Gold Shares). ETF performance statistics over the time period 2011-2021 are presented in Table.
 
-
+```
+ETFs Return Volatility Sharpe MDD Calmar Ratio Return/Ave.DD
+VTI 0.1410 0.1759 0.7677 0.3500 0.3849 4.1473
+IWM 0.1248 0.2194 0.5418 0.4113 0.2767 1.7915
+AGG 0.0335 0.0401 0.6995 0.0958 0.2913 2.1182
+LQD 0.0537 0.0724 0.6650 0.2176 0.2209 2.1832
+MUB 0.0417 0.0514 0.7052 0.1368 0.2642 1.8995
+DBC -0.0477 0.1611 -0.3273 0.6614 -0.0777 -0.1374
+GLD 0.0204 0.1584 0.0951 0.4556 0.0330 0.0561
+Table 1: Annualized ETF performance statistics over the period 2011-2021.
+```
 
 Table 1: Annualized ETF performance statistics over the period 2011-2021.
 
@@ -281,9 +416,82 @@ Table 1: Annualized ETF performance statistics over the period 2011-2021.
 
 #### 5.1 Neural Network Training and Hyperparameter Selection
 
+We present the computational results over the last ten years of daily data, where we keep the first six years (2011-2016/12) for hyperparameter search and the remaining years (2017-2021) for out-of-sample testing. We construct two neural networks: model-based and model-free end-to-end portfolios with a fully connected neural network consisting of a single hidden layer.
+In the backtesting framework, the neural network models are re-trained every 25 days with a look-back window of 150 days. To keep the model-based network less complicated, we use a sample estimator of the covariance matrix in the end-to-end risk budgeting and nominal risk parity portfolios obtained from the historical returns of the past 30 days. Exploring other estimation techniques or incorporating covariance matrix as a network parameter can be interesting future research directions. We split the in-sample period into training (2011-2014/12), and validation (2015-2016/12) sets to choose hyperparameters of the network.
+As the universal approximation theorem establish the ability of shallow feed-forward neural networks to approximate any continuous function, we choose to avoid unnecessary complexity and to go with a relatively shallow network consisting of 32 neurons in a single layer. We carefully tune the learning rate (η) and the number of training steps (n). A higher learning rate provides faster learning in a few steps. However, it might lead to zigzagging due to large steps. Whereas low learning rates have smoother convergence paths, but learning is much slower and with the downside of getting stuck at a local optimum point. We use linear update rules for learning rates and decrease it by the factor of 0.9 in every three steps. The results over the rangeη∈ { 50 , 100 , 150 , 250 , 300 , 500 }andn∈ { 5 , 10 , 25 , 50 }are presented in Table 2 and 3. Ideally, an optimal hyperparameter choice should provide reasonably good performance in both training and validation sets. Notice that as training steps increase, training time per batch increases significantly^2. In order to select the hyperparameters, we use the following procedure: First, filter the parameters sets that are in the top half of both train and validation sets. Then choose the one with the best performance in the validation set to guarantee the generalization. We find that for Sharpe-based portfolios, the learning rate of 150 provides good performance with ten training steps. Optimal parameter set for cumulative return function found to be learning rate of 300 with 25 training steps.
+
 #### 5.2 End-to-end Risk Budgeting Portfolios
 
+We compare end-to-end approach with a nominal risk parity portfolio. End-to-end portfolios have dynamic risk budget allocations for each asset based on learning results, whereas risk parity portfolio distributes risk contribution evenly across all underlying assets. With the end-to-end model risk budgets can be adjusted based on assets’ performance which helps to enhance the portfolio performance over nominal allocation. Figure 5 demonstrates cumulative performances of end-to-end and nominal portfolios, and Table 4 presents annualized portfolio statistics over the in-sample and out-of-sample periods. Fix-mix with equal weights (1/N) is showed by many researchers to be a robust and relatively strong benchmark. In this data set, the fix-mix strategy has worse risk-adjusted performance than risk-based asset allocation techniques. In both time periods, Sharpe-based end-to-end portfolio outperforms nominal risk-parity portfolio in terms of risk-adjusted returns, and the difference becomes more obvious after the crash of the nominal portfolio in 2013 and 2020. During in-sample period (2011-2016/12), Sharpe based end-to-end model achieves a Sharpe ratio of 1.11 whereas nominal risk parity has 0.62. End-to-end model trained with cumulative return function achieves higher cumulative wealth than nominal portfolio (1. 22 > 1 .13), and has better risk-adjusted performance in terms of Sharpe ratio (0. 80 > 0 .63). Fix-mix strategy has the worst risk-adjusted performance with a Sharpe ratio of 0.41. The performance difference between end-to-end Sharpe based model and the nominal risk parity over the in-sample period is evident in terms of the return to average drawdown ratio (4. 56 > 1 .54). However, over the out-of-sample period (2017-2021), performance differences are not as obvious until the 2020 crash. We notice that end-to-end portfolio tracks the behavior of the nominal risk-parity portfolio until the 2020 crash. In the last year of out-of-sample period, we observe the
+strategies perform differently. Measuring performance over the entire out-of-sample period, Sharpe-based end-to-end risk budgeting portfolio enjoys higher risk-adjusted returns than nominal risk parity in terms of both metrics (1. 15 > 0 .79, 5. 89 > 3 .30). On the other hand, return-based end-to-end portfolio provides slightly higher cumulative wealth (1. 30 > 1 .25) but lower risk-adjusted performance (0. 58 < 0 .79) over the period 2017-2021. Notice that cumulative return as a training objective results in worse performance than Sharpe ratio.Therefore, we choose Sharpe ratio as the main training objective in the neural network for the end-to-end portfolio model.
+
+
+
+End-to-end Sharpe-based risk budgeting portfolio has 7.55% annualized return whereas nom-inal risk parity and fix-mix strategy lost by -1.52% and -4.34% after July 2014 until July2015 (Figure 6). During that period, commodity indices suffered whereas stocks were thebest performers. DBC and GLD lost by 32% and 12%, respectively. On the other hand,VTI and IWM had positive returns by 7%. Even though bond indices had positive returnsin this period, they had bad performance during June 2013 which caused the drop in thevalues of the risk budgeting portfolios. On June 19th, Ben Bernanke announced phasing outthe quantitative easing program over the coming months, and investors withdrew$23 billionfrom bond funds in the following week (Nyaradi (2013)). From Table 4 we see that Sharpe-based end-to-end portfolio had less maximum drawdown value than nominal risk parity. Allthree bond indices have low but positive returns in the following year. End-to-end risk bud-geting portfolio has more weight on municipal bonds which was the best one among threebond indices. Due to the learned dynamic risk budgets, portfolio weights are much less oncorporate and treasury bonds. On the other hand, nominal risk parity have almost similarweights on three indices with heavier allocation on treasuries. Equal risk budget constraintdoesn’t allow to adjust the portfolio allocation based on the market circumstances, resultingin the performance difference after the crash period. On the other hand, end-to-end risk bud-geting portfolio allows dynamic allocation by adjusting target risk budgets. Furthermore, itis responsive to market dynamics in commodities and equities.
+
+
+
+Similarly, in 2020, all three strategies recorded losses on March 2020 due to Covid-19 pan-demic. The equal weight portfolio had 20% drawdown whereas end-to-end and nominalportfolio values dropped by 9.5% and 13.6% respectively (Table 4). However, they recordpositive yearly returns, the end-to-end risk budgeting portfolio has the best performancewith the 18% annual return. Nominal risk parity increases by 7% at the end of the year.Figure 7 presents allocation differences during and aftermath of March 2020 downturn forrisk budgeting portfolios. We can see that end-to-end risk budgeting portfolio shifts ma-jority of the allocation from municipal bonds to gold in April 2020. End-to-end portfolio’sallocation shifts to commodity and equity indices according to market dynamics whereasrisk parity portfolio kept more weights on bond indices due to their low volatility nature.
+
+
+
+We observe that end-to-end portfolio has more allocation switches than nominal risk par-ity. This might affect gains under transaction costs and can be mitigated by incorporatingtransaction penalty, but this analysis is out of the scope of this paper.
+
+
+
+Figure 5: Optimal end-to-end (e2e) portfolio performances over in-sample (top) and out-of-sample (bottom) periods.
+
 #### 5.3 Model-based vs. Model-free Portfolios
+
+In this part of the experiments, we look at differences between model-based and model-free end-to-end portfolios on the real market data. In the model-free end-to-end models, optimization layer is removed and we have a single layer fully connected neural networkthat learns the allocation directly from input features. Remaining parameters are kept thesame in order to have a fair comparison between model-based and model-free portfolios.Similar to the conclusion in Section 4, model-based portfolios are more robust and stablein the real market data as well. In particular, model-free portfolio lacks any structure thatguides the allocation, resulting an easy over-fitting with local structures that can be harmfulwhen market dynamic shifts. Figure 8 presents portfolio performances over the sampleperiod, and quantitative metrics are available in Table 5. Sharpe-based learning results inlower drawdowns than return based learning. In addition, performance difference betweenmodel-based and model-free portfolios is apparent with Sharpe-based learning. Specifically inout-of-sample period, model-based portfolio achieves about four times better risk-adjustedreturn than its model-free counterpart with Sharpe-based learning. Furthermore, model-based portfolio enjoys lower drawdowns than model-free portfolios in both time periods.
+
+```
+Portfolios Return Volatility Sharpe MDD Calmar Ratio Return/Ave.DD
+2011-2016/12
+e2e-sharpe 0.0515 0.0460 1.1095 0.0501 1.0142 4.5643
+e2e-return 0.0380 0.0466 0.8048 0.0750 0.5001 2.7017
+Nominal RP 0.0227 0.0359 0.6203 0.0675 0.3301 1.5307
+Fix-mix (1/n) 0.0290 0.0689 0.4135 0.1384 0.2059 0.9327
+2017-2021/06
+e2e-sharpe 0.0980 0.0730 1.1559 0.0949 0.8818 5.8857
+e2e-return 0.0718 0.1017 0.5758 0.1542 0.3775 2.4342
+Nominal RP 0.0609 0.0604 0.7906 0.1362 0.3484 3.2988
+Fix-mix (1/n) 0.0943 0.0970 0.8331 0.2065 0.3894 3.8598
+```
+
+Table 4: Annualized portfolio performance statistics over the in-sample (2011-2016) and out-of-sample (2017-2021/06) periods.
+
+
+
+Figure 6: Portfolio performances and allocations over the in-sample period 2014/07-2015/07. Reported asset allocations are weekly rolling averages. Numbers in the parenthesis show annualized returns.
+
+Figure 7: Out-of-sample portfolio performances after the downturn in March 2020. Reported asset allocations are weekly rolling averages. Numbers in the parenthesis show annualized returns.
+
+Figure 8: Model-based and model-free end-to-end portfolios with seven ETFs over in-sample (2011-2016) and out-of-sample (2017-2021/06) periods. Models are trained with same hyperparameters
+
+
+
+```
+Portfolios Return Volatility Sharpe MDD Calmar Ratio Return/Ave.DD
+2011-2016/12
+e2e-sharpe
+model-based 0.0515 0.0460 1.1095 0.0501 1.0142 4.5643
+model-free 0.0397 0.0695 0.5640 0.1308 0.2998 1.2297
+e2e-return
+model-based 0.0380 0.0466 0.8048 0.0750 0.5001 2.7017
+model-free 0.0436 0.1431 0.3014 0.2245 0.1922 0.6190
+2017-2021/06
+e2e-sharpe
+model-based 0.0980 0.0730 1.1559 0.0949 0.8818 5.8857
+model-free 0.0508 0.1194 0.3168 0.2226 0.1692 0.6979
+e2e-return
+model-based 0.0718 0.1017 0.5758 0.1542 0.3775 2.4342
+model-free 0.0040 0.1812 -0.0463 0.3587 -0.0218 -0.0633
+```
+
+Table 5: Annualized performance statistics of end-to-end (e2e) model-based and model-free portfolios over the in-sample (2011-2016) and out-of-sample (2017-2021/06) periods.
+
+
 
 ### 6 Asset Selection in Risk Budgeting Portfolios
 
@@ -291,16 +499,75 @@ One critic of the risk-based portfolios is that although they provide robust per
 
 
 
+We embed a set of stochastic gates after the risk budget layer that control whether the corresponding asset risk budget passes through. The idea is that, the gates corresponding to the ”bad” assets will be closed after training, and therefore the underlying asset universe on which the risk-budget portfolio based on consists only of assets with positive drifts. Let n be the number of assets to select from. Following Yamada et al. (2020), we optimize on a set of trainable parametersμ 1 ,...,μnthat translate to the probability of the gate being active. In each training step, we introduce a small randomness 1 ,...,n∼N(0,σ) so that the openness zd=μd+d is a mean-shifted Gaussian variable. Figure 9 explains the structure of the stochastic gate. In this learning task, we initializeμ’s with 0.5 as a neutral starting point, and choose the randomness parameter to beσ= 0.1.
+
+
+
+There are two main differences between our application and the original model of Yamada et al. (2020). First, unlike their inclusion of a penalty term in the loss function to discourage unnecessary features, we do not penalize on the activation of a gate. Recall that their purpose of stochastic gates is to select relevant features for a model with a ground-truth, and any redundant features are supposed to be filtered out. On the other hand, our purpose is merely to filter out the “bad” assets that are harmful to the portfolio, rather than selecting as few assets as possible. Therefore, we believe it unnecessary to penalize
+the inclusion of assets. Second, whereas the empirical test in Yamada et al. (2020) find the gates almost always converge to 0 or 1, the convergence in our financial application is slightly less clear. We thus apply a threshold of 0.5 in determining whether an asset should be included. With the trained parametersμand the risk budget b, we apply the risk budget b′=b (μ≥ 0 .5) to get the asset allocation, where is the element-wise multiplication, and (μ≥ 0 .5) is a vector of zeros and ones corresponding to the Boolean value. We apply and compare the following methods: (i)no gate: the original model-based neural network; (ii) gate with no filter: applying the adjusted risk budget b′ directly on the original covariance matrix to learn the allocation; and (iii)gate with filter: applying the adjusted risk budget b′ on the covariance including only the selected assets so that all weights are given to the
+selected ones. We test the approaches on both the market data, as well as a simulated data set where we include a random asset with low return and low volatility. Such a random asset would hurt the benchmark risk-parity portfolio, but not our end-to-end strategy with asset selection procedure.
+
+Figure 9: Stochastic gates for asset filtering.
+
+Figure 10: Computational graph of model-based approach with asset filtering gates.
+
+
+
 #### 6.1 Performance on Real Market Data
+
+Asset selection property in end-to-end risk budgeting portfolios is tested on the ETF investment universe. We provide three different nominal benchmarks: (1) Nominal RP: nominal risk parity, (2) Nominal RP-positive: nominal risk parity invested in assets with positive returns in the past 30-day, (3) Nominal RP-topk: Nominal risk parity invested in top k assets in the past 30-day period. We consider a similar hyperparameter search framework presented in Section 5.1. Here we have an additional hyperparameter which is the learning rate for gates (ημ). In order to be consistent, we keep the learning rate and number of training steps same (η= 150,n= 10), and tune the learning rate of gates over the range ημ={ 0. 001 , 0. 01 , 0. 1 ,..., 100 , 500 , 1000 , 2000 }. Return to average drawdown ratio provides better performance measurement for asset selection model, and we choose the optimal learning rate based on train and validation sets performance average.
+
+
+
+We present out-of-sample results for the portfolios with and without asset selection property. Quantitative results are in Table 6 and cumulative performance after 2020 is in Figure 11. Among nominal benchmarks, the risk parity invested on top-k has the best performance with a 10.5% annualized return over 2017-2021/06. All three end-to-end portfolios beat the nominal risk parity benchmark and provide better risk-adjusted return than top-k selection in terms of return to average drawdown ratio. End-to-end portfolio with stochastic gates embedding achieves a Sharpe ratio of 1.24 with the addition of the asset filtering property. In contrast, nominal risk parity and end-to-end risk budgeting portfolios have Sharpe ratios of 0.79 and 1.16, respectively. We observe that the asset filtering feature improves the portfolio performance in the risk budgeting portfolios in end-to-end and nominal models. Even with the dynamic risk budgeting option, namely e2e, we observe that small risk budgets still can lead to significant weight allocations. Ideally, we want to filter the ”bad” assets out of the portfolio. Therefore, we introduce this feature with stochastic gates, and computational results justify our hypothesis.
+
+
+
+Figure 11: Out-of-sample performance of end-to-end portfolios with stochastic gates and nominal benchmarks after 2020.
 
 #### 6.2 Performance with a Low Volatility and Low Return Asset
 
+Risk parity allocation structure is sensitive to asset characteristics in the portfolio, especially to low volatility assets. In order to test the effectiveness of the asset selection feature, we introduce a random asset with low volatility and return characteristics to our market portfolio. We simulate the random asset with a normal distribution with the parametersμ=− 0 .0005, σ= 0.0005. Table 7 presents statistics for the portfolios with the random asset. Notice that nominal risk parity experiences the worst performance due to the tendency to allocate in the low volatility asset. On the other hand, asset filtering feature is beneficial in end-to-end risk budgeting portfolios by avoiding investment in low-volatility assets that happen to possess low returns. Performance difference between end-to-end and nominal risk parity is obvious in Figure 12.
+
+```
+Portfolios Return Volatility Sharpe MDD Calmar Ratio Return/Ave.DD
+e2e-gate-with-filter 0.1233 0.0884 1.2373 0.1507 0.7215 4.8034
+e2e-gate-no-filter 0.1104 0.0850 1.1380 0.1412 0.6803 4.8196
+e2e 0.0980 0.0730 1.1559 0.0949 0.8818 5.8857
+Nominal RP 0.0609 0.0604 0.7906 0.1362 0.3484 3.2988
+Nominal RP-positive 0.0702 0.0765 0.7448 0.1304 0.4353 2.1512
+Nominal RP-topk 0.1049 0.0769 1.1871 0.1292 0.6945 3.8993
+```
+
+Table 6: Annualized performance metrics over the out-of-sample period 2017-2021/06. e2e portfolio parameters: η= 150,n= 10. e2e with stochastic gates:η= 150,ημ= 10,n= 10.
+
+
+
+Interestingly, both nominal filtering methods provide promising performance, with selecting the top winners improving the nominal risk parity portfolio returns significantly and producing positive returns over the out-of-sample period. This is not surprising be cause by design of this experiment, looking at past winners will guarantee the elimination of the bad-performing random asset. However, this is not a realistic assumption for the real market environment. We implement this example to show the benefits of the asset filtering feature in the risk budgeting portfolios, specifically in risk parity. In particular, our e2e method with filter still yields encouraging performance in terms of both Sharpe ratio and return over average drawdown, with the highest annualized return among all tested strategies.
+
 ### 7 Conclusion
+
+This paper adopts an end-to-end neural network approach to tackle the portfolio allocation problem with a model-based and model-free setup. The model-based approach learns the target risk budgets in the portfolio and allocates them according to the risk-budgeting strategy,and the model-free approach learns the allocation directly from the input features. We observe that the model-based end-to-end portfolio provides robust and satisfying performance on the real market data as well as in the simulation study. In particular, it outperforms nominal risk-parity and equal weights (1/N) benchmark strategies on market data regarding Sharpe ratio and return over average drawdown. The allocation of model-based end-to-end portfolio tracks the nominal risk-parity under normal market conditions and presents advantages under abnormal events such as bond crash and Covid-crash by effectively learning the recent dynamics. We introduce an asset selection feature that lets us filter out the unprofitable assets from the investment universe. Not only it protects the risk budgeting portfolio against the under performing low volatility assets, but it also boosts the performance in the real market data environment.
+
+Figure 12: Out-of-sample (2017-2021/06) performance of end-to-end portfolios with stochas-
+tic gates and benchmarks.
+
+```
+Portfolios Return Volatility Sharpe MDD Calmar Ratio Return/Ave.DD
+e2e-gate-with-filter 0.1205 0.1194 0.8929 0.1387 0.7660 3.2742
+e2e-gate-no-filter 0.0411 0.0872 0.3234 0.1185 0.2258 0.6287
+e2e 0.0560 0.1015 0.4236 0.2046 0.1815 0.7647
+Nominal RP -0.0465 0.0162 -3.5952 0.1655 -0.2868 -0.5445
+Nominal RP-positive 0.0702 0.0765 0.7448 0.1304 0.4353 2.1512
+Nominal RP-topk 0.0993 0.0762 1.1241 0.1292 0.6525 3.5327
+```
+
+Table 7: Annualized performance metrics over the out-of-sample period 2017-2021/06. e2e portfolio parameters: η= 500,n= 5. e2e with stochastic gates:η= 750,ημ= 750,n= 10.
+
+
 
 #### 7.1 Future Work
 
 There are numerous next steps that we want to point out for future research to enhance end-to-end portfolio optimization with risk budgeting layer. Here we choose to use sample estimate of covariance matrix since it has been shown that risk budgeting optimization problem robust to parameter estimates. However, it can be treated as a parameter in the optimization layer and determined in the learning process. In this paper, we treated multiperiod problem by solving single-period optimization problem in every step and assumed no transaction cost environment. On the other hand, with a multi-period problem we can address transaction costs and regulate portfolio turnover rate. The model predictive control approach in Uysal et al. (2021) can be implemented to construct multi-period risk budgeting portfolios. Furthermore, computational results can be extended to equity portfolio to test the performance in difference asset universes. This end-to-end framework can be constructed with a different portfolio optimization model of choice.
-
-
 
 ### References
